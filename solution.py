@@ -1,6 +1,7 @@
 
 from utils import *
 
+from collections import Counter
 
 row_units = [cross(r, cols) for r in rows]
 column_units = [cross(rows, c) for c in cols]
@@ -41,8 +42,15 @@ def naked_twins(values):
     and because it is simpler (since the reduce_puzzle function already calls this
     strategy repeatedly).
     """
-    # TODO: Implement this function!
-    raise NotImplementedError
+    for unit in unitlist:
+        naked_twins = Counter( [ values[key] for key in unit if len(values[key])==2 ] )
+        naked_twins = [ twin for twin in naked_twins.keys() if naked_twins[twin]==2 ]
+        for twin in naked_twins:
+            for key in unit:
+                if values[key] != twin:
+                    for n in list(twin):
+                        values[key] = values[key].replace(n,'')
+    return values
 
 
 def eliminate(values):
@@ -61,8 +69,16 @@ def eliminate(values):
     dict
         The values dictionary with the assigned values eliminated from peers
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    solved = list(filter(lambda box: len(values[box])<2, boxes))
+    for box in solved:
+        if len(values[box])==1:
+            for unit in unitlist:
+                if box in unit:
+                    for checkBox in unit:
+                        if checkBox != box:
+                            values[checkBox] = values[checkBox].replace(values[box],'')
+    return values
+    pass
 
 
 def only_choice(values):
@@ -85,8 +101,17 @@ def only_choice(values):
     -----
     You should be able to complete this function by copying your code from the classroom
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    for unit in unitlist:
+        for key in unit:
+            if len(values[key])>1:
+                s = set(values[key])
+                for diff in unit:
+                    if diff!=key:
+                        s = s-set(values[diff])
+                if len(s)==1:
+                    values[key] = s.pop()
+    return values
+    pass
 
 
 def reduce_puzzle(values):
@@ -101,10 +126,29 @@ def reduce_puzzle(values):
     -------
     dict or False
         The values dictionary after continued application of the constraint strategies
-        no longer produces any changes, or False if the puzzle is unsolvable 
+        no longer produces any changes, or False if the puzzle is unsolvable
     """
-    # TODO: Copy your code from the classroom and modify it to complete this function
-    raise NotImplementedError
+    stalled = False
+    while not stalled:
+        # Check how many boxes have a determined value
+        solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
+
+        # Your code here: Use the Eliminate Strategy
+        solved_values_after = eliminate(values)
+
+        # Your code here: Use the Only Choice Strategy
+        solved_values_after = only_choice(values)
+
+        solved_values_after = naked_twins(values)
+
+        # Check how many boxes have a determined value, to compare
+        solved_values_after = len([box for box in values.keys() if len(values[box]) == 1])
+        # If no new values were added, stop the loop.
+        stalled = solved_values_before == solved_values_after
+        # Sanity check, return False if there is a box with zero available values:
+        if len([box for box in values.keys() if len(values[box]) == 0]):
+            return False
+    return values
 
 
 def search(values):
@@ -126,8 +170,29 @@ def search(values):
     You should be able to complete this function by copying your code from the classroom
     and extending it to call the naked twins strategy.
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    values = reduce_puzzle(values)
+
+    if values is False:
+        return False
+
+    if all(len(values[s]) == 1 for s in boxes):
+        return values
+
+    shortestKey = ''
+    shortestLen = None
+    for key in values.keys():
+        if len(values[key])>1 and (shortestLen == None or len(values[key]) < shortestLen):
+            shortestKey = key
+            shortestLen = len(values[key])
+
+    for v in list(values[shortestKey]):
+        _values = values.copy()
+        _values[shortestKey] = v
+        _values = search(_values)
+        if _values is not False:
+            return _values
+
+    return False
 
 
 def solve(grid):
@@ -137,7 +202,7 @@ def solve(grid):
     ----------
     grid(string)
         a string representing a sudoku grid.
-        
+
         Ex. '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
 
     Returns
